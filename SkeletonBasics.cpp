@@ -158,9 +158,10 @@ int CSkeletonBasics::Run(HINSTANCE hInstance, int nCmdShow)
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
+		PrintSkeletonAsBvhFile();
     }
 	
-	PrintSkeletonAsBvhFile();
+	
 
     return static_cast<int>(msg.wParam);
 }
