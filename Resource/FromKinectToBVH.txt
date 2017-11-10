@@ -1,0 +1,41 @@
+20
+HipCenter
+3 1 12 16
+Spine
+1 2
+ShoulderCenter
+3 3 4 8
+Head
+0
+ShoulderLeft
+1 5
+ElbowLeft
+1 6
+WristLeft
+1 7
+HandLeft
+0
+ShoulderRight
+1 9
+ElbowRight
+1 10
+WristRight
+1 11
+HandRight
+0
+HipLeft
+1 13
+KneeLeft
+1 14
+AnkleLeft
+1 15
+FootLeft
+0
+HipRight
+1 17
+KneeRight
+1 18
+AnkleRight
+1 19
+FootRight
+0

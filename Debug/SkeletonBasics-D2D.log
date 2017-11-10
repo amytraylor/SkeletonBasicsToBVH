@@ -1,0 +1,4 @@
+﻿  SkeletonBasics.cpp
+e:\nckh\skeletonbasics-d2d\skeletonbasics.cpp(336): warning C4700: uninitialized local variable 'p' used
+  SkeletonBasics-D2D.vcxproj -> E:\NCKH\SkeletonBasics-D2D\Debug\SkeletonBasics-D2D.exe
+  SkeletonBasics-D2D.vcxproj -> E:\NCKH\SkeletonBasics-D2D\Debug\SkeletonBasics-D2D.pdb (Full PDB)
