@@ -27,7 +27,6 @@ struct b_Skeleton {
 };
 
 b_Skeleton *firstPoint, *latestFrameSkeleton;
-std::vector< std::list< int > > listJoint;
 std::map<int, std::string> toBVHJointName;
 NUI_SKELETON_DATA firstSkeletonData;
 
@@ -590,16 +589,16 @@ void CSkeletonBasics::SetStatusMessage(WCHAR * szMessage)
     SendDlgItemMessageW(m_hWnd, IDC_STATUS, WM_SETTEXT, 0, (LPARAM)szMessage);
 }
 
-std::string CSkeletonBasics::getJointStringForBVH(int jointNo, std::string indent, int jointParrentNo) {
+std::string CSkeletonBasics::getJointStringForBVH(int jointNo, std::string indent, int jointParrentNo, const std::vector<std::list<int>> & jointList) {
 	std::string stringResult= "";
 	std::string nextIndent = indent + '\t';
-	int jointX = firstSkeletonData.SkeletonPositions[jointNo].x - firstSkeletonData.SkeletonPositions[jointParrentNo].x;
+	float jointX = firstSkeletonData.SkeletonPositions[jointNo].x - firstSkeletonData.SkeletonPositions[jointParrentNo].x;
 	std::string s_jointX = std::to_string(jointX);
-	int jointY = firstSkeletonData.SkeletonPositions[jointNo].y - firstSkeletonData.SkeletonPositions[jointParrentNo].y;
+	float jointY = firstSkeletonData.SkeletonPositions[jointNo].y - firstSkeletonData.SkeletonPositions[jointParrentNo].y;
 	std::string s_jointY = std::to_string(jointY);
-	int jointZ = firstSkeletonData.SkeletonPositions[jointNo].z - firstSkeletonData.SkeletonPositions[jointParrentNo].z;
+	float jointZ = firstSkeletonData.SkeletonPositions[jointNo].z - firstSkeletonData.SkeletonPositions[jointParrentNo].z;
 	std::string s_jointZ = std::to_string(jointZ);
-	if (listJoint[jointNo].empty) {
+	if (jointList[jointNo].empty()) {
 		stringResult += (indent + "End Site" + '\n');
 		stringResult += (indent + '{' + '\n');
 		stringResult += (nextIndent + "OFFSET " + s_jointX + '\t' + s_jointY + '\t' + s_jointZ + '\n');
@@ -620,8 +619,8 @@ std::string CSkeletonBasics::getJointStringForBVH(int jointNo, std::string inden
 		else {
 			stringResult += (nextIndent + "CHANNELS 3 Zrotation Xrotation Yrotation\n");
 		}
-		for (std::list<int>::iterator i = listJoint[jointNo].begin(); i != listJoint[jointNo].end(); i++) {
-			stringResult += getJointStringForBVH(*i, nextIndent, jointNo);
+		for (size_t i = 0; i < jointList[jointNo].size(); i++) {
+			stringResult += getJointStringForBVH(i, nextIndent, jointNo, jointList);
 		}
 		stringResult += (indent + '}' + '\n');
 	}
@@ -640,6 +639,7 @@ void CSkeletonBasics::PrintSkeletonAsBvhFile()
 	currentFrame = firstPoint->nextFrame;
 	NUI_SKELETON_FRAME currentSkeletonFrame = currentFrame->skeletonFrameData;
 	firstSkeletonData = currentSkeletonFrame.SkeletonData[0];
+	std::vector< std::list< int > > jointList;
 	// from here we will try to make a recursion for continuation of printing the hierachy
 	// first, we will create a vector of list that store the structure of the hierachy, the structure was stored in Resource/FromKinectToBVH.txt already
 
@@ -658,7 +658,7 @@ void CSkeletonBasics::PrintSkeletonAsBvhFile()
 			customHierachy >> _temp_Joint;
 			_temp_list.push_back(_temp_Joint);
 		}
-		listJoint.push_back(_temp_list);
+		jointList.push_back(_temp_list);
 	}
 	customHierachy.close();
 
@@ -667,7 +667,7 @@ void CSkeletonBasics::PrintSkeletonAsBvhFile()
 	std::ofstream currentSkeleton ("Skeleton.BVH");
 
 	currentSkeleton << "HIERARCHY" << std::endl;
-	currentSkeleton << getJointStringForBVH(0, "", 0);
+	currentSkeleton << getJointStringForBVH(0, "", 0, jointList);
 
 	// Print out Motion
 	currentSkeleton << "MOTION";
