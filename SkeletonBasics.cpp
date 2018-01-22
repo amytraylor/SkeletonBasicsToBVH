@@ -28,7 +28,6 @@ struct b_Skeleton {
 
 b_Skeleton *firstPoint, *latestFrameSkeleton;
 std::map<int, std::string> toBVHJointName;
-NUI_SKELETON_DATA firstSkeletonData;
 
 // the skeleton_Joint is a tree made for helping printing bvh file
 
@@ -157,7 +156,6 @@ int CSkeletonBasics::Run(HINSTANCE hInstance, int nCmdShow)
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
-		PrintSkeletonAsBvhFile();
     }
 	
 	
@@ -239,6 +237,7 @@ LRESULT CALLBACK CSkeletonBasics::DlgProc(HWND hWnd, UINT message, WPARAM wParam
 
         // If the titlebar X is clicked, destroy app
     case WM_CLOSE:
+		PrintSkeletonAsBvhFile();
         DestroyWindow(hWnd);
         break;
 
@@ -315,6 +314,7 @@ HRESULT CSkeletonBasics::CreateFirstConnected()
 			firstPoint->nextFrame = NULL;
 
 			// Create the lastestFrameSkeleton. At first, it's also the firstPoint.
+			latestFrameSkeleton = new b_Skeleton;
 			latestFrameSkeleton = firstPoint;
 
             // Create an event that will be signaled when skeleton data is available
@@ -351,7 +351,7 @@ void CSkeletonBasics::ProcessSkeleton()
     m_pNuiSensor->NuiTransformSmooth(&skeletonFrame, NULL);
 
 	//After smoothing out, we have the skeleton data in the current frame which is already to store.
-	b_Skeleton *p;
+	b_Skeleton *p = (struct b_Skeleton*) malloc(sizeof(struct b_Skeleton));
 	p->skeletonFrameData = skeletonFrame;
 	p->nextFrame = NULL;
 	latestFrameSkeleton->nextFrame = p;
@@ -589,7 +589,7 @@ void CSkeletonBasics::SetStatusMessage(WCHAR * szMessage)
     SendDlgItemMessageW(m_hWnd, IDC_STATUS, WM_SETTEXT, 0, (LPARAM)szMessage);
 }
 
-std::string CSkeletonBasics::getJointStringForBVH(int jointNo, std::string indent, int jointParrentNo, const std::vector<std::list<int>> & jointList) {
+std::string CSkeletonBasics::getJointStringForBVH(NUI_SKELETON_DATA firstSkeletonData,int jointNo, std::string indent, int jointParrentNo, const std::vector<std::list<int>> & jointList) {
 	std::string stringResult= "";
 	std::string nextIndent = indent + '\t';
 	float jointX = firstSkeletonData.SkeletonPositions[jointNo].x - firstSkeletonData.SkeletonPositions[jointParrentNo].x;
@@ -619,8 +619,8 @@ std::string CSkeletonBasics::getJointStringForBVH(int jointNo, std::string inden
 		else {
 			stringResult += (nextIndent + "CHANNELS 3 Zrotation Xrotation Yrotation\n");
 		}
-		for (size_t i = 0; i < jointList[jointNo].size(); i++) {
-			stringResult += getJointStringForBVH(i, nextIndent, jointNo, jointList);
+		for (auto i : jointList[jointNo]) {
+			stringResult += getJointStringForBVH(firstSkeletonData, i, nextIndent, jointNo, jointList);
 		}
 		stringResult += (indent + '}' + '\n');
 	}
@@ -631,16 +631,11 @@ void CSkeletonBasics::PrintSkeletonAsBvhFile()
 {
 	/// Create a map for pointing Constants in NUI to ones in BVH
 
-
-
-	//Temporary, we will assume that there is only one skeleton is tracked.
-
-	b_Skeleton *currentFrame;
+	b_Skeleton *currentFrame = new b_Skeleton;
 	currentFrame = firstPoint->nextFrame;
 	NUI_SKELETON_FRAME currentSkeletonFrame = currentFrame->skeletonFrameData;
-	firstSkeletonData = currentSkeletonFrame.SkeletonData[0];
+	//firstSkeletonData = currentSkeletonFrame.SkeletonData[0];
 	std::vector< std::list< int > > jointList;
-	// from here we will try to make a recursion for continuation of printing the hierachy
 	// first, we will create a vector of list that store the structure of the hierachy, the structure was stored in Resource/FromKinectToBVH.txt already
 
 	std::ifstream customHierachy("Resource/FromKinectToBVH.txt");
@@ -662,32 +657,71 @@ void CSkeletonBasics::PrintSkeletonAsBvhFile()
 	}
 	customHierachy.close();
 
+
 	//after that, we will print out the Hierachy in recursion way
 
-	std::ofstream currentSkeleton ("Skeleton.BVH");
+	struct skeletonData {
+		DWORD dwTrackingID;
+		std::string skeletonBVHString;
+		std::string latestFrameString;
+		skeletonData *nextSkeleton;
+	};
 
-	currentSkeleton << "HIERARCHY" << std::endl;
-	currentSkeleton << getJointStringForBVH(0, "", 0, jointList);
+	skeletonData *zeroSkeleton = (struct skeletonData*) malloc(sizeof(struct skeletonData));
+	zeroSkeleton->nextSkeleton = NULL;
+	zeroSkeleton->dwTrackingID = 0;
+	skeletonData *tempSkeleton;
+	skeletonData *p;
 
-	// Print out Motion
-	currentSkeleton << "MOTION";
-	currentSkeleton << "Frames: " << latestFrameSkeleton->skeletonFrameData.dwFrameNumber << std::endl;
-	currentSkeleton << "Frame Time: " << latestFrameSkeleton->skeletonFrameData.liTimeStamp.QuadPart << std::endl;
 	std::string rotationX, rotationY, rotationZ;
+	NUI_SKELETON_DATA currentSkeleton;
+	NUI_SKELETON_TRACKING_STATE trackingState;
+	std::string framesAmount = std::to_string(latestFrameSkeleton->skeletonFrameData.dwFrameNumber);
+	std::string framesRate = std::to_string(latestFrameSkeleton->skeletonFrameData.liTimeStamp.QuadPart / latestFrameSkeleton->skeletonFrameData.dwFrameNumber);
+
 	while (NULL != currentFrame) {
-		const NUI_SKELETON_DATA & currentSkeletonData = currentSkeletonFrame.SkeletonData[0];
-		currentSkeleton << currentSkeletonData.Position.x << ' ' << currentSkeletonData.Position.y << ' ' << currentSkeletonData.Position.z << ' ';
-		NUI_SKELETON_BONE_ORIENTATION boneOrientations[NUI_SKELETON_POSITION_COUNT];
-		NuiSkeletonCalculateBoneOrientations(& currentSkeletonData, boneOrientations);
-		for (int j = 0; j < NUI_SKELETON_POSITION_COUNT; j++) {
-			NUI_SKELETON_BONE_ORIENTATION & orientation = boneOrientations[j];
-			rotationX = std::to_string(orientation.hierarchicalRotation.rotationQuaternion.x);
-			rotationY = std::to_string(orientation.hierarchicalRotation.rotationQuaternion.y);
-			rotationZ = std::to_string(orientation.hierarchicalRotation.rotationQuaternion.z);
-			currentSkeleton << rotationZ<< ' ' << rotationX << ' ' << rotationY << ' ';
+		currentSkeletonFrame = currentFrame->skeletonFrameData;
+		for (int i = 0; i < NUI_SKELETON_COUNT; i++) {
+			currentSkeleton = currentSkeletonFrame.SkeletonData[i];
+			trackingState = currentSkeleton.eTrackingState;
+			if (NUI_SKELETON_TRACKED == trackingState) {
+				tempSkeleton = zeroSkeleton->nextSkeleton;
+				while ((tempSkeleton->nextSkeleton != NULL) && (tempSkeleton->dwTrackingID != currentSkeleton.dwTrackingID)) {
+					tempSkeleton = tempSkeleton->nextSkeleton;
+				}
+				if (tempSkeleton->dwTrackingID != currentSkeleton.dwTrackingID) {
+					p = (struct skeletonData*) malloc(sizeof(struct skeletonData));
+					p->dwTrackingID = currentSkeleton.dwTrackingID;
+					p->nextSkeleton = NULL;
+					tempSkeleton->nextSkeleton = p;
+					tempSkeleton = p;
+					tempSkeleton->skeletonBVHString = "HIERARCHY\n" + getJointStringForBVH(currentSkeleton, 0, "", 0, jointList);
+					tempSkeleton->skeletonBVHString += "MOTION\n";
+					tempSkeleton->skeletonBVHString += "Frames: " + framesAmount + '\n';
+					tempSkeleton->skeletonBVHString += "Frame Time: " + framesRate + '\n';
+				}
+				const NUI_SKELETON_DATA & currentSkeletonData = currentSkeleton;
+				tempSkeleton->latestFrameString = std::to_string(currentSkeletonData.Position.x) + ' ' + std::to_string(currentSkeletonData.Position.y) + ' ' + std::to_string(currentSkeletonData.Position.z) + ' ';
+				NUI_SKELETON_BONE_ORIENTATION boneOrientations[NUI_SKELETON_POSITION_COUNT];
+				NuiSkeletonCalculateBoneOrientations(&currentSkeletonData, boneOrientations);
+				for (int j = 0; j < NUI_SKELETON_POSITION_COUNT; j++) {
+					NUI_SKELETON_BONE_ORIENTATION & orientation = boneOrientations[j];
+					rotationX = std::to_string(orientation.hierarchicalRotation.rotationQuaternion.x);
+					rotationY = std::to_string(orientation.hierarchicalRotation.rotationQuaternion.y);
+					rotationZ = std::to_string(orientation.hierarchicalRotation.rotationQuaternion.z);
+					tempSkeleton->latestFrameString += rotationZ + ' ' + rotationX + ' ' + rotationY + ' ';
+				}
+				tempSkeleton->latestFrameString += '\n';
+				tempSkeleton->skeletonBVHString += tempSkeleton->latestFrameString;
+			}
 		}
-		currentSkeleton << std::endl;
 		currentFrame = currentFrame->nextFrame;
 	}
-	currentSkeleton.close();
+	std::ofstream bvhSkeleton("bvhSkeleton.bvh");
+	tempSkeleton = zeroSkeleton;
+	while (tempSkeleton->nextSkeleton != NULL) {
+		tempSkeleton = tempSkeleton->nextSkeleton;
+		bvhSkeleton << tempSkeleton->skeletonBVHString;
+	}
+	bvhSkeleton.close();
 }

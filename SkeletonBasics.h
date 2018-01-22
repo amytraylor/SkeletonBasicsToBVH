@@ -8,6 +8,9 @@
 
 #include "resource.h"
 #include "NuiApi.h"
+#include <string>
+#include <vector>
+#include <list>
 
 class CSkeletonBasics
 {
@@ -136,7 +139,7 @@ private:
     void                    SetStatusMessage(WCHAR* szMessage);
 
 
-	std::string				getJointStringForBVH(int jointNo, std::string indent, int jointParrentNo);
+	std::string				getJointStringForBVH(NUI_SKELETON_DATA firstSkeletonData, int jointNo, std::string indent, int jointParrentNo, const std::vector<std::list<int>> & jointList);
 	///<summary>
 	/// Print the Skeleton data into bvh file
 	///</sumary>
