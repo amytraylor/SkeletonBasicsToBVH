@@ -1,4 +1,2 @@
 ﻿  SkeletonBasics.cpp
-e:\nckh\skeletonbasicstobvh\skeletonbasicstobvh\skeletonbasics.cpp(685): warning C4244: 'initializing': conversion from 'LONGLONG' to 'double', possible loss of data
-e:\nckh\skeletonbasicstobvh\skeletonbasicstobvh\skeletonbasics.cpp(709): warning C4244: 'argument': conversion from 'FLOAT' to 'char', possible loss of data
   SkeletonBasics-D2D.vcxproj -> E:\NCKH\SkeletonBasicsToBVH\SkeletonBasicsToBVH\Debug\SkeletonBasics-D2D.exe

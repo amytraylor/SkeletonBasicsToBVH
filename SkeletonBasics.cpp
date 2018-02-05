@@ -13,6 +13,8 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <unordered_map>
+#include <sstream>
 
 
 static const float g_JointThickness = 3.0f;
@@ -660,7 +662,61 @@ void CSkeletonBasics::PrintSkeletonAsBvhFile()
 
 	//after that, we will print out the Hierachy in recursion way
 
-	struct skeletonData {
+	std::unordered_map<DWORD, std::string> skeletonBVHStringMap;
+	std::unordered_map<DWORD, std::string> skeletonLatestStringMap;
+	std::pair<DWORD, std::string> temp_skeletonInitData;
+	std::string temp_skeletonBVHString, framesAmount;
+	std::string framesRate = std::to_string(latestFrameSkeleton->skeletonFrameData.liTimeStamp.QuadPart / latestFrameSkeleton->skeletonFrameData.dwFrameNumber);
+
+	std::string rotationX, rotationY, rotationZ;
+	NUI_SKELETON_DATA currentSkeleton;
+	NUI_SKELETON_TRACKING_STATE trackingState;
+	while (NULL != currentFrame) {
+		currentSkeletonFrame = currentFrame->skeletonFrameData;
+		for (int i = 0; i < NUI_SKELETON_COUNT; i++) {
+			currentSkeleton = currentSkeletonFrame.SkeletonData[i];
+			trackingState = currentSkeleton.eTrackingState;
+			if (NUI_SKELETON_TRACKED == trackingState) {
+				if (skeletonBVHStringMap.find(currentSkeleton.dwTrackingID) == skeletonBVHStringMap.end()) {
+					temp_skeletonBVHString = "HIERARCHY\n" + getJointStringForBVH(currentSkeleton, 0, "", 0, jointList);
+					temp_skeletonBVHString += "MOTION\n";
+					framesAmount = std::to_string(latestFrameSkeleton->skeletonFrameData.dwFrameNumber - currentSkeletonFrame.dwFrameNumber);
+					temp_skeletonBVHString += "Frames: " + framesAmount + '\n';
+					temp_skeletonBVHString += "Frame Time: " + framesRate + '\n';
+					temp_skeletonInitData = std::make_pair(currentSkeleton.dwTrackingID, temp_skeletonBVHString);
+					skeletonBVHStringMap.insert(temp_skeletonInitData);
+				}
+				const NUI_SKELETON_DATA & currentSkeletonData = currentSkeleton;
+				temp_skeletonBVHString = std::to_string(currentSkeletonData.Position.x) + ' ' + std::to_string(currentSkeletonData.Position.y) + ' ' + std::to_string(currentSkeletonData.Position.z) + ' ';
+				NUI_SKELETON_BONE_ORIENTATION boneOrientations[NUI_SKELETON_POSITION_COUNT];
+				NuiSkeletonCalculateBoneOrientations(&currentSkeletonData, boneOrientations);
+				for (int j = 0; j < NUI_SKELETON_POSITION_COUNT; j++) {
+					NUI_SKELETON_BONE_ORIENTATION & orientation = boneOrientations[j];
+					rotationX = std::to_string(orientation.hierarchicalRotation.rotationQuaternion.x);
+					rotationY = std::to_string(orientation.hierarchicalRotation.rotationQuaternion.y);
+					rotationZ = std::to_string(orientation.hierarchicalRotation.rotationQuaternion.z);
+					temp_skeletonBVHString += rotationZ + ' ' + rotationX + ' ' + rotationY + ' ';
+				}
+				temp_skeletonBVHString += '\n';
+				skeletonLatestStringMap[currentSkeleton.dwTrackingID] = temp_skeletonBVHString;
+			}
+			if (skeletonBVHStringMap.find(currentSkeleton.dwTrackingID) != skeletonBVHStringMap.end()) {
+				skeletonBVHStringMap[currentSkeleton.dwTrackingID] += skeletonLatestStringMap[currentSkeleton.dwTrackingID];
+			}
+		}
+		currentFrame = currentFrame->nextFrame;
+	}
+	std::string skeletonFileName;
+	for (auto& x : skeletonBVHStringMap) {
+		std::ostringstream stream;
+		stream << x.first;
+		skeletonFileName = "bvhSkeleton" + stream.str() + ".bvh";
+		std::ofstream bvhSkeleton(skeletonFileName);
+		bvhSkeleton << x.second;
+		bvhSkeleton.close();
+	}
+
+	/*struct skeletonData {
 		DWORD dwTrackingID;
 		std::string skeletonBVHString;
 		std::string latestFrameString;
@@ -723,5 +779,5 @@ void CSkeletonBasics::PrintSkeletonAsBvhFile()
 		tempSkeleton = tempSkeleton->nextSkeleton;
 		bvhSkeleton << tempSkeleton->skeletonBVHString;
 	}
-	bvhSkeleton.close();
+	bvhSkeleton.close();*/
 }
